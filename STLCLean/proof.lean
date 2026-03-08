@@ -375,7 +375,6 @@ theorem SubstMap
   simp only [Function.comp_apply, hs]
   rw [s2.subst_rec]
 
--- ★ NEW (CW3)
 /-- If `pp' ctx m = some ⟨ctx', ty⟩`, then there exists a substitution `f` such that
     `(applySubst f ctx).env ⊆ ctx'.env`. In other words, the inference output context
     contains the input context (up to substitution). -/
@@ -441,7 +440,6 @@ theorem InferenceSubsetMap
             ] at this
             assumption
 
--- ★ NEW (CW3)
 -- Assumption: next always produces a fresh type variable
 -- This is guaranteed by next's definition and existence of inj Nat -> Char
 -- In particular, if I add new info (y, <fresh>) to ctx
@@ -455,21 +453,18 @@ theorem NextFresh
 : ctx.lookup x = some ty ↔ (add y (next ctx).1 (next ctx).2).lookup x = some ty := by
   sorry
 
--- ★ NEW (CW3)
 /-- `SubstLookup`: applying a substitution to a context preserves lookup results up to `f`.
     This is a convenience wrapper around `LookupMap`. -/
 theorem SubstLookup (f : CurryType → CurryType) (ctx : TypeCtx) (x : Char) (ty : CurryType) :
     ctx.lookup x = some ty → (applySubst f ctx).lookup x = some (f ty) :=
   fun h => LookupMap f h
 
--- ★ NEW (CW3)
 /-- `distributes f`: predicate asserting that `f` distributes over arrow types,
     i.e. `f (a → b) = f(a) → f(b)`. Required by `CheckSubst`. -/
 @[grind .]
 def distributes (f : CurryType → CurryType) :=
   ∀ a b, f (a.arrow b) = (f a).arrow (f b)
 
--- ★ NEW (CW3)
 /-- `lookup_inv f ctx ctx'`:
     predicate asserting that `f` is a lookup invariant from `ctx` to `ctx'`,
     i.e. for every variable `x` with type `ty` in `ctx`, `ctx'` assigns `f ty` to `x`. -/
@@ -477,28 +472,24 @@ def distributes (f : CurryType → CurryType) :=
 def lookup_inv (f : CurryType → CurryType) (ctx ctx' : TypeCtx) :=
   ∀ x ty, ctx.lookup x = some ty → ctx'.lookup x = some (f ty)
 
--- ★ NEW (CW3)
 /-- `check_inv f ctx ctx'`: predicate asserting that `f` is a check invariant from `ctx` to `ctx'`,
     i.e. for every term `t` with type `ty` under `ctx`, `ctx'` assigns `f ty` to `t`. -/
 @[grind .]
 def check_inv (f : CurryType → CurryType) (ctx ctx' : TypeCtx) :=
   ∀ t ty, check ctx t = some ty → check ctx' t = some (f ty)
 
--- ★ NEW (CW3)
 /-- `equiv_lookup_on f g ctx`: `f` and `g` agree on types of variables actually occurring in `ctx`,
     i.e. for all `x` with `ctx.lookup x = some ty`, `g ty = f ty`. -/
 @[grind .]
 def equiv_lookup_on (f g : CurryType → CurryType) (ctx : TypeCtx) :=
   ∀ x ty, ctx.lookup x = some ty → g ty = f ty
 
--- ★ NEW (CW3)
 /-- `equiv_check_on f g ctx`: `f` and `g` agree on types of terms that type-check under `ctx`,
     i.e. for all `t` with `check ctx t = some ty`, `g ty = f ty`. -/
 @[grind .]
 def equiv_check_on (f g : CurryType → CurryType) (ctx : TypeCtx) :=
   ∀ x ty, check ctx x = some ty → g ty = f ty
 
--- ★ NEW (CW3)
 /-- `InferenceLookupInv`: if `pp' ctx m = some ⟨ctx', _⟩`, then there exists a canonical
     substitution `f` (distributing over arrows) that is a lookup invariant from `ctx` to `ctx'`,
     and it is unique in the sense that any other lookup invariant `g` agrees with `f` on
@@ -578,7 +569,6 @@ theorem InferenceLookupInv
                 have h5 := LookupMap s2.apply h4
                 grind
 
--- ★ NEW (CW3)
 /-- `InferenceCheckInv`: if `pp' ctx m = some ⟨ctx', _⟩`, then there exists a canonical
     substitution `f` (distributing over arrows) that is a check invariant from `ctx` to `ctx'`,
     and it is unique among check invariants in that any other `g` agrees with `f` on types
@@ -759,7 +749,6 @@ theorem InferenceCheckInv
                     s2.subst_rec
                 grind
 
--- ★ NEW (CW3)
 /-- `occursInTerm x t`:
     proposition that variable `x` occurs (free or bound as a name) in term `t`. -/
 def occursInTerm (x : Char) : Term → Prop
@@ -767,7 +756,6 @@ def occursInTerm (x : Char) : Term → Prop
 | .abs y m => x = y ∨ occursInTerm x m
 | .app m n => occursInTerm x m ∨ occursInTerm x n
 
--- ★ NEW (CW3)
 /-- `CheckEqIfOccursInv`: if two contexts agree on the types of all variables occurring in `t`,
     then `check ctx1 t = check ctx2 t`. -/
 theorem CheckEqIfOccursInv (t : Term) (ctx1 ctx2 : TypeCtx) :
@@ -799,7 +787,6 @@ theorem CheckEqIfOccursInv (t : Term) (ctx1 ctx2 : TypeCtx) :
       fun y hy => h y (Or.inr hy)
     grind
 
--- ★ NEW (CW3)
 /-- `CheckSuccessLookupSome`: if `check ctx t = some ty`, then every variable occurring in `t`
     has a type in `ctx`. -/
 theorem CheckSuccessLookupSome (t : Term) (ctx : TypeCtx) (ty : CurryType) :
@@ -847,7 +834,6 @@ theorem CheckSuccessLookupSome (t : Term) (ctx : TypeCtx) (ty : CurryType) :
           · grind
 
 
--- ★ NEW (CW3)
 -- Auxiliary lemma: if a list lookup succeeds, the key-value pair is in the list
 theorem LookupThenIn {α β : Type} [BEq α] [LawfulBEq α] {x : α} {y : β} {l : List (α × β)}
     (h : List.lookup x l = some y) : (x, y) ∈ l := by
@@ -855,7 +841,6 @@ theorem LookupThenIn {α β : Type} [BEq α] [LawfulBEq α] {x : α} {y : β} {l
   | nil => grind
   | cons hd tl ih => grind
 
--- ★ NEW (CW3)
 -- Auxiliary lemma: if f a = f b, then for any substitution list es,
 -- left-folding each substitution in es after f preserves the equality of a and b
 theorem FoldlInv (es : List ExSubst) (f : CurryType → CurryType) (a b : CurryType)
@@ -870,7 +855,6 @@ theorem FoldlInv (es : List ExSubst) (f : CurryType → CurryType) (a b : CurryT
     apply ih
     exact congrArg ex.cast h
 
--- ★ NEW (CW3)
 -- Core inductive lemma: for any variable-pair list l and substitution list exs,
 -- if unifyCtx' l = some exs, then
 -- the left-folded composition of substitutions unifies each pair in l
@@ -958,7 +942,6 @@ theorem UnifyCtxSound :
             exact IH
   exact main l.length l exs rfl h x a b hmem
 
--- ★ NEW (CW3)
 /-- `UnifyCtxMapCommon`: if `unifyCtx ctx1 ctx2 = some s`, then for any variable `x` whose
     type is `ty1` in `ctx1` and `ty2` in `ctx2`, the substitution `s` unifies them:
     `s.apply ty1 = s.apply ty2`. This is the soundness property of `unifyCtx`. -/

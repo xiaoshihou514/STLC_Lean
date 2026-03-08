@@ -1,1 +1,1 @@
-import STLCLean.Basic
+import STLCLean.proof
