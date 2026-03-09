@@ -1,0 +1,26 @@
+[
+  {
+    "name": "codeberg",
+    "url": "ssh://git@codeberg.org/xiaoshihou/STLC_Lean.git"
+  },
+  {
+    "name": "disroot",
+    "url": "ssh://git@git.disroot.org/xiaoshihou/STLC_Lean.git"
+  },
+  {
+    "name": "sourcehut",
+    "url": "git@git.sr.ht:~xiaoshihou/STLC_Lean"
+  },
+  {
+    "name": "gitlab",
+    "url": "git@gitlab.com:xiaoshihou/STLC_Lean.git"
+  },
+  {
+    "name": "gitgud",
+    "url": "git@gitgud.io:xiaoshihou514/STLC_Lean.git"
+  },
+  {
+    "name": "frama",
+    "url": "git@framagit.org:xiaoshihou/STLC_Lean.git"
+  }
+]

@@ -30,7 +30,7 @@
 
 罗宾逊合一算法 @robinson1965 是大多数类型推导过程的计算核心。其终止性证明需要用到自由类型变量集合的势作为良基的度量，同时还需要一个压缩引理。
 
-本文面向熟悉Lean基础、对类型论有一定了解的大一、二本科生。
+本文面向熟悉Lean基础、对类型论有一定了解的本科生，希望能对读者有所裨益。
 
 *本文内容一览*：
 
@@ -40,6 +40,61 @@
 + 类型推导算法的正确性证明。
 
 本文分发协议为#link("https://creativecommons.org/licenses/by-sa/4.0/")[*CC BY-SA*]，代码开源协议为#link("https://jxself.org/translations/gpl-3.zh.shtml")[*GPL V3*]。
+
+#pagebreak()
+
+= 导读
+
+== 什么是λ演算？
+
+λ演算是由阿隆佐·丘奇在20世纪30年代提出的形式系统，用于研究函数定义、函数应用和递归。它构成了函数式编程语言的理论基础。最基本的λ项由变量、抽象（函数定义）和应用（函数调用）组成：
+
+```
+t ::= x | λx.t | t t
+```
+
+例如，恒等函数写作 `λx.x`，它接受一个参数`x`并直接返回`x`。
+
+== 为什么要引入类型？
+
+无类型λ演算虽然表达能力强，但允许一些“病态”的项，例如 `(λx.x x)(λx.x x)`，它会导致无限循环（Ω组合子）。为了排除这类无意义的程序，人们引入了类型系统。简单类型λ演算（Simply Typed Lambda Calculus, STLC）是最基础的类型系统，它为每个项赋予一个类型，类型由基本类型和函数类型构成：
+
+```
+τ ::= α | τ → τ
+```
+
+类型规则确保函数应用时参数类型匹配。例如，恒等函数 `λx.x` 的类型可以是 `α → α`，其中 `α` 是一个类型变量，表示“任意类型”。
+
+== 什么是主类型推导？
+
+给定一个项，我们可能想知道它是否能被赋予一个类型，如果能，最一般的类型是什么？这就是*主类型推导*问题。主类型（principal type）是指：项的所有可能类型都是该类型的某个替换实例。例如，恒等函数的主类型是 `α → α`，任何其他类型如 `(β → β) → (β → β)` 都可以通过将 `α` 替换为 `β → β` 得到。
+
+主类型推导算法通常分为两步：
+1. 为项生成一组类型约束（例如，应用时要求左项类型为函数，且右项类型与函数参数一致）。
+2. 通过合一算法求解这些约束，得到最一般的替换。
+
+== 一个简单的例子
+
+考虑项 `λf.λx.f x`（即函数应用组合子）。我们手动推导其主类型：
+
+- 假设 `f` 的类型为 `α`，`x` 的类型为 `β`。
+- 应用 `f x` 要求 `f` 是函数类型，设 `α = γ → δ`，且 `x` 的类型 `β` 必须等于 `γ`。
+- 于是 `f x` 的类型为 `δ`。
+- 抽象 `x`：`λx.f x` 的类型为 `β → δ`，但已知 `β = γ`，所以为 `γ → δ`。
+- 再抽象 `f`：`λf.λx.f x` 的类型为 `(γ → δ) → γ → δ`。
+
+用类型变量替换 `γ, δ` 为任意类型，得到最一般的类型 `(α → β) → α → β`。这就是该组合子的主类型。
+
+== 本文的价值
+
+虽然STLC的主类型推导早已被形式化验证@MLCoq（例如在Coq中），但本文使用*Lean 4*——一个年轻但强大的定理证明器——重新实现了整个算法并证明了其正确性。
+
+通过阅读本文，读者将能够：
+- 理解STLC的语法、类型规则和类型检查器；
+- 掌握罗宾逊合一算法的实现及其终止性证明；
+- 见证主类型推导算法的完整正确性证明。
+
+尽管Coq等工具早已有类似工作，但Lean 4的现代设计、简洁的语法和强大的社区支持，使得这一经典结果以新的形式呈现，为类型理论和定理证明的学习者提供了宝贵的资源。
 
 #pagebreak()
 
@@ -243,6 +298,7 @@ $
       | none    => none
       | some s1 =>
         -- 将 s1 作用于所有剩余对，再递归处理
+        -- 因为后续合一必须在前一个替换的基础上进行，否则可能引入不一致。
         let rest' := rest.map (fun (y, ty1, ty2) =>
                        (y, s1.apply ty1, s1.apply ty2))
         match unifyCtx' rest' with
@@ -251,6 +307,7 @@ $
   ```
 
   其中 `ExSubst` 是对 `Subst` 的类型擦除包装，使得不同索引类型的替换可存入同质列表。
+
 ]
 
 `unifyCtx` 基于 `unifyCtx'` 构建：收集所有共有变量三元组$(x, Gamma_1(x), Gamma_2(x))$，调用 `unifyCtx'`，然后用 `foldl` 从左到右复合所有替换：
@@ -290,9 +347,11 @@ def unifyCtx (ctx1 ctx2 : TypeCtx) : Option (CtxSubst ctx1 ctx2) :=
   $ "pp'"(Gamma, m" "n) = "some"(S_2(S_1(Gamma_3)), S_2(S_1(alpha))) $
 ]
 顶层函数$"pp"(t) := "pp'"(Gamma_emptyset, t)$。
+
 = 结构性引理
 本章收录支撑最终结果（主类型推导算法的正确性）的基础引理。
-== 自由变量引理
+
+== 自由变量相关引理
 #引理([类型的大小为正])[$forall tau, "sz"(tau) > 0$。]<size_gtz>
 #引理([自由变量的包含性])[$forall tau, tau', "vars"(tau) subset.eq "vars"(tau arrow.r tau')$。]<vars_arrow>
 #引理([替换后的自由变量范围])[若 $not "occ"(alpha, sigma)$，则 $forall tau, "vars"(rpl(alpha, sigma, tau)) subset.eq brace.l.stroked alpha brace.r.stroked union "vars"(sigma) union "vars"(tau)$。证明对 $tau$ 作结构归纳。] <replace_var_scope>
@@ -302,7 +361,18 @@ def unifyCtx (ctx1 ctx2 : TypeCtx) : Option (CtxSubst ctx1 ctx2) :=
 #证明[
   设 $L = "vars"(rpl(alpha, sigma, tau))$，$R = brace.l.stroked alpha brace.r.stroked union "vars"(sigma) union "vars"(tau)$。假设 $|L| = |R|$。由 @replace_var_scope 得 $L subset.eq R$；由 @replace_elim 得 $alpha in.not L$；而 $alpha in R$，故 $L subset.neq R$。那么，$|R| lt.eq |L|$ 与 $L subset.eq R$ 合并推得 $L = R$，矛盾。
 ]
-== `check` 的结构性质
+
+== 上下文操作的基本性质
+#引理([新变量的唯一性])[
+  对 `ctx` 中任何现有变量 $x eq.not alpha$，向上下文中添加绑定 $(alpha, tau)$ 不影响对 $x$ 的查找：
+  $
+    "ctx"(x) = "some"(tau) arrow.l.r ("add"(y, "next"("ctx")."fst", "next"("ctx")."snd"))(x) = "some"(tau).
+  $
+
+  `next ctx` 始终产生一个相对于 `ctx` 的新变量 $alpha$
+] <next_fresh>
+
+== 类型检查的结构性质
 #引理([检查不关心计数器])[`check` 只依赖上下文的 `env` 字段，与 `label` 无关：若 $Gamma."env" = Gamma'."env"$，则 $"check"(Gamma, t) = "check"(Gamma', t)$。<check_inv_under_label>]
 #引理([添加新变量不影响检查])[若 $Gamma'(x) = "none"$，$"ctx" = Gamma' + (x : alpha)$，$m eq.not "var" x$，且 $"check"(Gamma', m) = "some"(pi)$，则 $"check"("ctx", m) = "some"(pi)$。<check_inv_under_add>]
 #证明[
@@ -355,7 +425,8 @@ def unifyCtx (ctx1 ctx2 : TypeCtx) : Option (CtxSubst ctx1 ctx2) :=
     "occurs"(x, m" "n) &:= "occurs"(x, m) or "occurs"(x, n).
   $
 ]
-== 关键引理
+
+== 通用引理
 #引理([替换后上下文查找])[若 $Gamma(x) = "some"(tau)$，则 $("applySubst"(f, Gamma))(x) = "some"(f(tau))$。（@lookup_map 的推论。） <SubstLookup>]
 #引理([左折叠保持相等])[
   若 $f(a) = f(b)$，则对任意替换列表 $"es"$：
@@ -368,6 +439,7 @@ def unifyCtx (ctx1 ctx2 : TypeCtx) : Option (CtxSubst ctx1 ctx2) :=
 
   类型检查仅依赖于在项中语法出现的变量的类型赋值。证明对 $t$ 作结构归纳，每步只需比较 $t$ 的子项中出现的变量。]<CheckEqIfOccursInv>
 #引理([检查成功则变量绑定])[若 $"check"(Gamma, t) = "some"(tau)$，则对 $t$ 中出现的每个变量 $x$，有 $exists tau', Gamma(x) = "some"(tau')$。类型检查成功蕴含所有出现的变量均在上下文中绑定。]<CheckSuccessLookupSome>
+
 == 上下文合一正确性
 #引理([上下文合一正确性])[
   若 $"unifyCtx'"(l) = "some"("exs")$，$(x, a, b) in l$，设 $F = "exs"."foldl"(lambda "acc", "ex". "ex" compose "acc", "id")$，则 $F(a) = F(b)$。
@@ -377,6 +449,7 @@ def unifyCtx (ctx1 ctx2 : TypeCtx) : Option (CtxSubst ctx1 ctx2) :=
   若 $"unifyCtx"(Gamma_1, Gamma_2) = "some"(s)$，$Gamma_1(x) = "some"(tau_1)$，$Gamma_2(x) = "some"(tau_2)$，则 $s("apply")(tau_1) = s("apply")(tau_2)$。
 
   `unifyCtx` 的输出替换将两个上下文公共变量的类型赋值为相同的像。该定理是应用情形证明的关键：它联系了 `unifyCtx` 的操作行为与类型检查的语义要求。]<UnifyCtxMapCommon>
+
 == `pp'` 的性质
 以下三个引理描述了 `pp'` 的输出上下文与输入上下文之间的关系。
 #引理([输出上下文包含输入像])[
@@ -384,6 +457,7 @@ def unifyCtx (ctx1 ctx2 : TypeCtx) : Option (CtxSubst ctx1 ctx2) :=
   $("applySubst"(f, Gamma))."env" subset.eq Gamma'."env"$。
 
   输出上下文包含（在某个替换 $f$ 的像下）输入上下文的所有绑定。证明对项作结构归纳，在每种情形下显式构造 $f$。]<InferenceSubsetMap>
+
 #引理([推理查找保持唯一性])[
   若 $"pp'"(Gamma, m) = "some"(chevron.l Gamma', dots chevron.r)$，则存在替换 $f$ 使得：
   - $"lookup_inv"(f, Gamma, Gamma')$（查找保持性），
@@ -423,6 +497,7 @@ def unifyCtx (ctx1 ctx2 : TypeCtx) : Option (CtxSubst ctx1 ctx2) :=
 
   *对称情形 $tau_1 = tau$，$tau_2 = phi_p$*：`replacer` 与 `replace` 使用相同的底层函数，论证对称。
 ]
+
 = 推导的正确性
 #引理([主类型推导算法的正确性])[
   若 $"pp'"(Gamma, t) = "some"(p)$，则 $"check"(p."ctx", t) = "some"(p."ty")$。
@@ -459,22 +534,14 @@ def unifyCtx (ctx1 ctx2 : TypeCtx) : Option (CtxSubst ctx1 ctx2) :=
 #推论[
   若 $"pp"(t) = "some"(p)$，则 $p."ctx" tack.r t : p."ty"$（按定义 2.5 的类型赋值规则）。
 ]
-= 遗留问题
-#注记([`NextFresh`])[
-  上述证明用到了以下假设：`next ctx` 始终产生一个相对于 `ctx` 的新变量 $alpha$——对 `ctx` 中任何现有变量 $x eq.not alpha$，向上下文中添加绑定 $(alpha, tau)$ 不影响对 $x$ 的查找：
-  $
-    "ctx"(x) = "some"(tau) arrow.l.r ("add"(y, "next"("ctx")."fst", "next"("ctx")."snd"))(x) = "some"(tau).
-  $
 
-  从实现来看，`next` 将 `label` 字符的序数加一，`add` 在环境前端插入新绑定，唯一性在直觉上显然成立。然而，严格的形式化证明需要对 `Char.ofNat (ctx.label.toNat + 1)` 进行单射性论证——本质上涉及 $"Nat" arrow "Char"$ 的有界单射性，包含字符编码的细节。该性质目前以 `sorry` 接受为公理。考虑到一般性实现的自由性，不妨将该定理理解为任何`next`实现的性质要求。即，只要实现中的`next`满足此性质，即可通过本文描述的形式化方法证明其正确性。
-]
 = 结论
 本文给出了简单柯里类型λ式主类型推导算法的完整 Lean 4 形式化证明，包括：
 + STLC 语法、类型赋值规则与类型检查函数；
 + 罗宾逊合一算法与其终止性证明；
 + 主类型推导算法的完整正确性证明。
-唯一的公理假设是 `NextFresh`（见第八章），其余所有结论均经过 Lean 4 机器检验。
-未来工作方向包括：将框架推广至带名字和递归的$lambda$式（LCNR）或米尔纳的 ML 类型系统。
+
+未来工作方向包括：将框架推广至带名字和递归的$lambda$式（LCNR）或米尔纳的 ML 类型系统，证明主类型算法的完备性等。
 
 = AI 辅助声明
 

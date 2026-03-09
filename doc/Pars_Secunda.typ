@@ -49,7 +49,7 @@
     ),
   ),
   abstract: [
-    This addendum extends the Lean 4 formalisation of principal type inference for the Simply Typed Lambda Calculus described in the companion report. The primary achievement is the resolution of the application case of `InferenceSound'`, which was left as an open item in the original development. A suite of new supporting lemmas was developed and `unifyCtx` was refactored for correctness.
+    This addendum extends the Lean 4 formalisation of principal type inference for the Simply Typed Lambda Calculus described in the companion report. The primary achievement is the resolution of the application case of `InferenceSound'`, which was left as an open item in the original development. A suite of new supporting lemmas was developed, `unifyCtx` was refactored for correctness.
   ],
   index-terms: (
     "type inference",
@@ -67,7 +67,7 @@ This document is an addendum to the companion report _Principal Type Inference f
 
 + *Correctness fix to `unifyCtx`* (#ref(<para_2>, form: "page")): the prior implementation unified each common-variable pair independently, without threading substitutions through subsequent pairs. A new recursive helper `unifyCtx'` fixes this.
 + *New supporting lemmas and definitions* (#ref(<para_3>, form: "page")): a collection of lemmas about variable occurrence, lookup, and substitution invariants, needed to discharge the application case.
-+ *Resolution of the open item in `InferenceSound'`* (#ref(<para_4>, form: "page")): the application case of the main soundness lemma is now fully proved, closing the primary open item from the companion report.
++ *Resolution of the open item in `InferenceSound'`* (#ref(<para_4>, form: "page")): the application case of the main soundness lemma is now fully proved, closing the primary open item from the companion report. `NextFresh`, previously left as a sorry'd assumption, is also now proved.
 
 = Correctness Fix: Refactoring `unifyCtx` <para_2>
 
@@ -278,20 +278,22 @@ The proof proceeds by cases on $"check"(p."ctx", m)$ and $"check"(p."ctx", n)$.
 
 #proof[
   $"pp"(t) = "pp'"(Gamma_emptyset, t)$. Apply `InferenceSound'` directly.
-  The theorem is now proved with no remaining `sorry` (subject to `NextFresh` below).
+  The theorem is now proved with no remaining `sorry`.
 ]
 
-= Remaining Open Items
+= `NextFresh` Proved
 
-#remark([`NextFresh` (sorry'd)])[
-  The proof uses the assumption that `next ctx` always produces a variable $alpha$ that is
-  _fresh_: for any existing variable $x eq.not alpha$ in `ctx`, adding the binding $(alpha, tau)$
-  to the context does not affect the lookup of $x$. Formally:
+#remark([`NextFresh`])[
+  The assumption that `next ctx` always produces a fresh type variable is now fully proved.
+  Formally:
   $
     "ctx"(x) = "some"(tau) arrow.l.r\
     ("add"(y, "next"("ctx")."fst", "next"("ctx")."snd"))(x) = "some"(tau).
   $
-  This is morally obvious from the definition of `next` (it advances the `label` character, and the `add` function prepends to the environment). However, this is subject to the constraint that 1. integer overflow never happens and 2. existence of bijective $NN <-> "Char"$ mapping. Considering the implications of `next` and its practical implementations. We deem this theorem as a prequisite for any implementation of `next`, so as to say, all `next` need to satisfy this property, and we will not bother proving this for our specific implementation.
+  The proof proceeds by unfolding `TypeCtx.lookup`, `add`, and `next` via `simp`, then
+  closing with `grind`. The key insight is that `add` prepends a new binding for $y$, and
+  since $x eq.not y$, the lookup of $x$ is unaffected; `grind` discharges the resulting
+  equality automatically.
 ]
 
 = Summary of Changes
@@ -303,7 +305,7 @@ The proof proceeds by cases on $"check"(p."ctx", m)$ and $"check"(p."ctx", n)$.
     table.header([*File*], [*Change*], [*Status*]),
     [`inference.lean`], [`unifyCtx` refactored; `unifyCtx'` added], [Complete],
     [`proof.lean`], [`InferenceSubsetMap`], [Complete],
-    [`proof.lean`], [`NextFresh`], [★ Sorry (assumption)],
+    [`proof.lean`], [`NextFresh`], [Complete],
     [`proof.lean`], [`SubstLookup`], [Complete],
     [`proof.lean`],
     [`distributes`, `lookup_inv`, `check_inv`,\ `equiv_lookup_on`, `equiv_check_on`],
