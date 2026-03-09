@@ -451,7 +451,13 @@ theorem NextFresh
   (ctx : TypeCtx)
   {hxy : x ≠ y}
 : ctx.lookup x = some ty ↔ (add y (next ctx).1 (next ctx).2).lookup x = some ty := by
-  sorry
+  -- Since x is not equal to y
+  -- the lookup of x in the new context is the same as in the original context.
+  simp [TypeCtx.lookup, add];
+  -- By definition of `next`
+  -- the environment of the next context is the same as the original environment.
+  simp [next];
+  grind
 
 /-- `SubstLookup`: applying a substitution to a context preserves lookup results up to `f`.
     This is a convenience wrapper around `LookupMap`. -/
